@@ -36,6 +36,8 @@ This project uses two publicly available datasets:
 | **USTC-TFC2016** | Application Traffic Classification        | [Download](https://github.com/davidyslu/USTC-TFC2016) |
 | **ISCX-VPN-2016** | VPN / Non-VPN Traffic Classification      | [Download](https://www.unb.ca/cic/datasets/vpn.html) |
 
+Download the cleaned data from: [Drive Link](https://drive.google.com/drive/folders/1ePQxWhdiKSdiq9rhdXJN8_lcALrnCcX_?usp=sharing)
+
 ## Data Preparation
 
 ### Step 1 — Preprocess PCAPs into Training TSV Files
@@ -49,12 +51,33 @@ This script performs the following operations:
 - Outputs **flow-level sequences** as TSV files suitable for QwenNet preprocessing and model training  
 
 ```bash
-python3 pre-process/input_generation_understanding.py \
-    --pcap_path data/pcap/ \
-    --dataset_dir data/understanding/datasets/ \
-    --middle_save_path data/understanding/result/ \
-    --class_num N \
-    --random_seed 42
+python3 pre-process/main.py
+```
+
+### Step 2 - Convert to pretraining corpus
+```bash
+python3 preprocess.py   --corpus_path corpora/traffic.txt \
+                        --vocab_path models/encryptd_vocab.txt \
+                        --dataset_path distributed/dataset.pt \
+                        --processes_num 8 \
+                        --data_processor lm
+```
+
+## Pretraining
+
+```bash
+!python3 pretrain.py   --dataset_path distributed/dataset.pt \
+                      --vocab_path models/encryptd_vocab.txt \
+                      --config_path models/qwen/config.json \
+                      --output_model_path pretrained_model.bin \
+                      --use_qwen \
+                      --qwen_model_name Qwen/Qwen2.5-0.5B \
+                      --world_size 1 \
+                      --gpu_ranks 0 \
+                      --learning_rate 1e-4 \
+                      --data_processor lm \
+                      --batch_size 32 \
+                      --total_steps 10000
 ```
 
 ## Fine Tuning for Traffic Understanding
@@ -68,9 +91,9 @@ python3 finetune/run_understanding.py \
     --config_path models/qwen/config.json \
     --use_qwen \
     --qwen_model_name Qwen/Qwen2.5-0.5B \
-    --train_path data/understanding/datasets/train_dataset.tsv \
-    --dev_path data/understanding/datasets/valid_dataset.tsv \
-    --test_path data/understanding/datasets/test_dataset.tsv \
+    --train_path data/understanding_dataset/train_dataset.tsv \
+    --dev_path data/understanding_dataset/valid_dataset.tsv \
+    --test_path data/understanding_datasets/test_dataset.tsv \
     --epochs_num 2 \
     --batch_size 32 \
     --labels_num N \
